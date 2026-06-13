@@ -1,10 +1,46 @@
-# TU Cloud Project – Scalable Image Classification with Autoscaling
+# TU Cloud Project - Scalable Image Classification with Autoscaling
 
 This project implements a cloud-based image inference system using Docker, Kubernetes, Redis, Prometheus, and Flask. It supports both custom autoscaling and Kubernetes HPA, and evaluates performance under varying workloads.
 
-## 🚀 Setup Instructions
+---
 
-### 1. Clone the Repository
+## Architecture
+
+```
+Client -> Dispatcher (port 5001) -> Redis Queue -> ML Model replica(s) (port 6001)
+                |                                           |
+      Prometheus metrics (:8000)              Prometheus metrics (:8001)
+                |
+      Autoscaler (reads Prometheus -> scales K8s replicas)
+```
+
+---
+
+## Prerequisites
+
+Install the following before starting:
+
+| Tool           | Version | Install                                      |
+|----------------|---------|----------------------------------------------|
+| Python         | 3.9+    | https://python.org/downloads                 |
+| Docker Desktop | Latest  | https://docker.com/products/docker-desktop   |
+| Minikube       | Latest  | `brew install minikube` (Mac)                |
+| kubectl        | Latest  | `brew install kubectl` (Mac)                 |
+
+Verify installs:
+
+```bash
+python3 --version
+docker --version
+minikube version
+kubectl version --client
+```
+
+---
+
+## Setup Instructions
+
+### Step 1 - Clone the Repository
 
 ```bash
 git clone https://github.com/SatyaDewangan05/tu-cloud-project.git
@@ -13,39 +49,114 @@ cd tu-cloud-project
 
 ---
 
-### 2. Build and Run Locally (Without Kubernetes)
+### Step 2 - Start Infrastructure
 
-From ml_model folder:
+Make sure Docker Desktop is running first.
+
+Start Redis:
+
+```bash
+docker run -d -p 6379:6379 redis
+```
+
+Start Prometheus (run from the project root directory):
+
+```bash
+docker run -d \
+  -p 9090:9090 \
+  --mount type=bind,source=$(pwd)/dispatcher/prometheus.yml,target=/etc/prometheus \
+  prom/prometheus
+```
+
+Verify both containers are running:
+
+```bash
+docker ps
+```
+
+You should see both `redis` and `prom/prometheus` listed. Open the Prometheus UI at http://localhost:9090 to confirm.
+
+---
+
+### Step 3 - Run the ML Model Server
 
 ```bash
 cd ml_model
-python3 -m venv ml_pipe
-source ml_pipe/bin/activate
-pip install -r requirements.txt
-python app.py  # Should run on port 6001
+python3 -m venv venv_model
+source venv_model/bin/activate
+pip install flask torch torchvision pillow prometheus-client opencv-python
+python app.py
 ```
 
-In another terminal, run dispatcher:
+Expected output:
+```
+* Running on http://127.0.0.1:6001
+```
+
+Metrics available at: http://localhost:8001/metrics
+
+---
+
+### Step 4 - Run the Dispatcher
+
+Open a new terminal:
 
 ```bash
 cd dispatcher
 python3 -m venv venv_disp
 source venv_disp/bin/activate
-pip install -r ../ml_model/requirements.txt
-python dispatcher_redis.py  # Should run on port 5001
+pip install flask redis prometheus-client requests
+python dispatcher_redis.py
+```
+
+Expected output:
+```
+Redis-based Dispatcher running on http://localhost:5001
+```
+
+Metrics available at: http://localhost:8000/metrics
+
+---
+
+### Step 5 - Test the System
+
+Open a new terminal and send a test request. Replace the path with the absolute path to an image on your machine:
+
+```bash
+curl -X POST http://localhost:5001/query \
+  -H "Content-Type: application/json" \
+  -d '{"image": "/absolute/path/to/tu-cloud-project/ml_model/images/fire_truck.jpeg"}'
+```
+
+Expected response:
+
+```json
+{"message": "Queued"}
+```
+
+In the dispatcher terminal you should see:
+
+```
+[OK] Forwarded <request-id> to http://localhost:6001/ -> 200; Prediction: {"class": "fire truck", "confidence": 0.97}
 ```
 
 ---
 
-### 3. Build and Deploy to Minikube
+### Step 6 - Deploy to Minikube (Kubernetes)
 
-Start Minikube with metrics-server:
+Start Minikube:
 
 ```bash
-minikube start --addons=metrics-server
+minikube start --cpus=4 --memory=6144
 ```
 
-Build and push Docker image:
+Verify it is running:
+
+```bash
+minikube status
+```
+
+Build the Docker image inside Minikube's Docker environment:
 
 ```bash
 eval $(minikube docker-env)
@@ -53,15 +164,16 @@ cd ml_model
 docker build -t inference-model .
 ```
 
-Deploy Kubernetes resources:
+Deploy Kubernetes resources from the project root:
 
 ```bash
-cd ../dispatcher/k8
-kubectl apply -f inference-deployment.yaml
-kubectl apply -f inference-service.yaml
+cd ..
+kubectl apply -f dispatcher/k8/inference-deployment.yaml
+kubectl apply -f dispatcher/k8/inference-service.yaml
+kubectl apply -f dispatcher/k8/hpa-70.yaml
 ```
 
-Expose service:
+Expose the service:
 
 ```bash
 minikube service tu-cloud-project
@@ -70,94 +182,78 @@ kubectl port-forward deployment/tu-cloud-project 6001:6001 8001:8001
 
 ---
 
-### 4. Start Prometheus
+## Autoscaler Usage
 
-Ensure prometheus.yml is in dispatcher folder.
-
-Start Prometheus (optional Docker version):
+Run from the dispatcher directory with the virtual environment active:
 
 ```bash
-docker run -p 9090:9090     -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml     prom/prometheus
-```
-
----
-
-## 📈 Autoscaler Usage
-
-Run this from dispatcher:
-
-```bash
+cd dispatcher
+source venv_disp/bin/activate
 python autoscaler_logger.py
 ```
 
-To analyze:
+To analyze logs and generate plots:
 
 ```bash
 python analyze_autoscaler_log.py
 ```
 
-This generates:
+This generates the following files in the dispatcher directory:
 
-- autoscaler_summary.csv
-- p99_latency_plot.png
-- queue_size_plot.png
-- replica_count_plot.png
+- `autoscaler_summary.csv`
+- `p99_latency_plot.png`
+- `queue_size_plot.png`
+- `replica_count_plot.png`
 
 ---
 
-## 🧪 Load Testing
-
-Prepare your image inside ml_model/images/fire_truck.jpeg
-
-Run test from dispatcher:
+## Load Testing
 
 ```bash
 cd dispatcher/test
 python test.py
 ```
 
-Use workload.txt or workload_heavy.txt to simulate different RPS loads.
+Use `workload.txt` or `workload_heavy.txt` to simulate different requests-per-second loads.
 
 ---
 
-## 🤖 Kubernetes HPA Setup
+## Kubernetes HPA Setup
 
-Deploy HPA with CPU target:
+Deploy HPA with a CPU target of 70%:
 
 ```bash
 kubectl autoscale deployment tu-cloud-project --cpu-percent=70 --min=1 --max=10
 ```
 
-Use watch to observe:
+Monitor HPA scaling decisions:
 
 ```bash
 watch -n 5 kubectl get hpa
 ```
 
-Run your workload while HPA is active and collect stats.
+---
+
+## Processes Reference
+
+| Process             | Command                      | Port |
+|---------------------|------------------------------|------|
+| ML Model server     | `python app.py`              | 6001 |
+| Dispatcher server   | `python dispatcher_redis.py` | 5001 |
+| Redis               | Docker                       | 6379 |
+| Prometheus          | Docker                       | 9090 |
+| Minikube            | `minikube start`             | -    |
 
 ---
 
-## 📊 Compare Autoscaler vs HPA
+## Goals
 
-After running autoscaler_logger.py and gathering logs:
-
-```bash
-python analyze_autoscaler_log.py
-```
-
-Compare with metrics collected using HPA (export using kubectl top pods and log CPU usage).
-
----
-
-## ✅ Goals
-
-- Achieve server-side latency < 0.5s
+- Achieve server-side latency under 0.5 seconds
 - Demonstrate autoscaler responsiveness under load
 - Compare HPA (70%, 90%) vs custom autoscaler
 
 ---
 
-## 📬 Contact
+## Contact
 
 For any help, reach out to your project supervisor or the contributor.

@@ -43,7 +43,7 @@ kubectl version --client
 ### Step 1 - Clone the Repository
 
 ```bash
-git clone https://github.com/SatyaDewangan05/tu-cloud-project.git
+git https://github.com/PremrajChavan/cloud-project2026.git
 cd tu-cloud-project
 ```
 

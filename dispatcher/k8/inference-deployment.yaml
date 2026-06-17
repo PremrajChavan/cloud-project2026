@@ -16,14 +16,14 @@ spec:
     spec:
       containers:
         - name: resnet-infer
-          image: resnet-infer  # Replace with your Docker Hub image if not using Minikube
+          image: resnet-infer
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 6001  # Flask API
-            - containerPort: 8001  # Prometheus metrics
+            - containerPort: 6001
+            - containerPort: 8001
           resources:
             requests:
-              cpu: "500m"
+              cpu: "1"        # ← FIXED (was "500m")
               memory: "512Mi"
             limits:
               cpu: "1"

@@ -4,8 +4,8 @@ global:
 scrape_configs:
   - job_name: "dispatcher"
     static_configs:
-      - targets: ["localhost:8000"]
+      - targets: ["dispatcher-service:8000"]   # K8s DNS name
 
   - job_name: "inference_service"
     static_configs:
-      - targets: ["localhost:8001"]
+      - targets: ["tu-cloud-project:8001"]      # K8s DNS name

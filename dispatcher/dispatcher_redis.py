@@ -2,13 +2,15 @@ from flask import Flask, request, jsonify
 from prometheus_client import start_http_server, Counter, Gauge
 import redis
 import uuid
+import os
 import threading
 import time
 import base64
 import requests
 
 app = Flask(__name__)
-r = redis.Redis(host='localhost', port=6379, decode_responses=False)
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+r = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=False)
 
 # Prometheus metrics
 requests_received = Counter(
@@ -21,9 +23,11 @@ queue_size = Gauge("dispatcher_queue_size", "Current Redis queue size")
 
 # Config
 QUEUE_NAME = 'inference_queue'
-MAX_WAIT_TIME = 0.5  # seconds
+MAX_WAIT_TIME = 10  # seconds
 FORWARD_INTERVAL = 0.05  # 50ms
-replica_urls = ["http://localhost:6001/"]
+REPLICA_HOST = os.getenv("REPLICA_HOST", "localhost")
+REPLICA_PORT = os.getenv("REPLICA_PORT", "80")
+replica_urls = [f"http://{REPLICA_HOST}:{REPLICA_PORT}/"]
 replica_index = 0
 
 
@@ -96,4 +100,4 @@ if __name__ == '__main__':
     # for _ in range(10):  # Adjust to number of CPUs or desired parallelism
     threading.Thread(target=forward_requests, daemon=True).start()
 
-    app.run(port=5001)
+    app.run(host="0.0.0.0", port=5001)

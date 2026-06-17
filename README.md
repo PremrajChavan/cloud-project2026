@@ -1,13 +1,5 @@
-# TU Cloud Project – Scalable Image Classification with Autoscaling
-
-This project implements a cloud-based image inference system using Docker, Kubernetes, Redis, Prometheus, and Flask. It supports both custom autoscaling and Kubernetes HPA, and evaluates performance under varying workloads.
-
-## 🚀 Setup Instructions
-
 ### 1. Clone the Repository
 
-```bash
-git clone https://github.com/PremrajChavan/cloud-project2026.git
 cd tu-cloud-project
 ```
 

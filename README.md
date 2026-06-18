@@ -405,12 +405,3 @@ lsof -ti:<port> | xargs kill -9
 ```
 
 ---
-
-## Kubernetes Resources
-
-| Resource | CPU Request | CPU Limit | Memory |
-|---|---|---|---|
-| ML Inference Pod | 1 core | 1 core | 512Mi / 1Gi |
-| Dispatcher | - | - | default |
-| Redis | - | - | default |
-| Prometheus | - | - | default |

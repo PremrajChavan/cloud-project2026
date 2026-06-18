@@ -1,6 +1,4 @@
 # Cloud Computing Project 2026
-## Adaptive ML Inference Autoscaler on Kubernetes
-
 ---
 
 ## Overview

@@ -14,7 +14,7 @@ DEPLOYMENT_NAME = "tu-cloud-project"
 NAMESPACE = "default"
 MIN_REPLICAS = 1
 MAX_REPLICAS = 10
-SCALE_INTERVAL = 15  # seconds
+SCALE_INTERVAL = 15 
 CSV_PATH = "autoscaler_log.csv"
 
 # === Prometheus Query ===

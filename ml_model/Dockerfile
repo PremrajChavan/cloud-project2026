@@ -1,4 +1,3 @@
-# Base image - Python 3.13 (latest stable)
 FROM python:3.13-slim
 
 # Install system dependencies

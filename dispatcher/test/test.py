@@ -1,5 +1,3 @@
-# heavy_test.py
-
 import requests
 import os
 import json
@@ -7,7 +5,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from base64 import b64encode
 
-dispatcher_url = "http://localhost:5001/query"  # dispatcher exposed port
+dispatcher_url = "http://localhost:5001/query"
 image_path = "/app/images/fire_truck.jpeg"
 
 

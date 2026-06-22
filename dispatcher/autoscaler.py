@@ -7,7 +7,7 @@ DEPLOYMENT_NAME = "tu-cloud-project"
 NAMESPACE = "default"
 MIN_REPLICAS = 1
 MAX_REPLICAS = 10
-SCALE_INTERVAL = 15  # seconds
+SCALE_INTERVAL = 15 
 
 # === Helper: Query Prometheus ===
 
@@ -28,20 +28,26 @@ def query_prometheus(promql):
 
 # === Scaling Logic ===
 
-
 def compute_target_replicas(p99_latency, queue_size, current_replicas):
-    if p99_latency is None or queue_size is None:
-        return current_replicas
+    if queue_size is None:
+        queue_size = 0
 
-    # Simple scaling logic
-    if p99_latency > 0.5 or queue_size > 10:
-        return min(current_replicas + 1, MAX_REPLICAS)
-    elif p99_latency < 0.2 and queue_size < 3:
+    if queue_size == 0:
         return max(current_replicas - 1, MIN_REPLICAS)
+
+    if p99_latency is not None and p99_latency > 0.5:
+        needed = max(current_replicas + 2, current_replicas + int(queue_size / 50))
+        return min(needed, MAX_REPLICAS)
+
+    if queue_size > 100:
+        return min(current_replicas + 2, MAX_REPLICAS)
+
+    if queue_size > 20:
+        return min(current_replicas + 1, MAX_REPLICAS)
+
     return current_replicas
 
 # === Get Current Replica Count ===
-
 
 def get_current_replicas():
     output = subprocess.check_output(

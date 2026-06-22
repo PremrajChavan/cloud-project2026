@@ -333,10 +333,11 @@ Timestamp              P99 Latency   Queue Size   Replicas   Action
 
 | Condition | Action |
 |---|---|
-| P99 > 0.5s OR Queue > 10 | Scale up by 1 replica (max 10) |
-| P99 < 0.2s AND Queue < 3 | Scale down by 1 replica (min 1) |
+| P99 > 0.5s (SLO violated) | Scale up aggressively (+2 or queue/50 replicas) |
+| Queue > 100 | Scale up by 2 replicas (proactive) |
+| Queue > 20 | Scale up by 1 replica (proactive) |
+| Queue = 0 | Scale down by 1 replica |
 | Otherwise | No scaling needed |
-
 ---
 
 ## Prometheus Queries
@@ -356,9 +357,9 @@ Open `http://localhost:9090` and run these queries:
 
 | Metric | Custom Autoscaler | HPA 70% | HPA 90% |
 |---|---|---|---|
-| Avg P99 Latency | 0.248s | 0.258s | 0.248s |
-| Max P99 Latency | 0.249s | 0.406s | 0.249s |
-| Avg Replicas Used | 2.46 | 3.13 | 2.46 |
+| Avg P99 Latency | 0.248s | 0.265s | 0.248s |
+| Max P99 Latency | 0.456s | 0.406s | 0.456s |
+| Avg Replicas Used | 2.78 | 2.81 | 2.83 |
 | Latency Target Met | Yes (< 0.5s) | Yes (< 0.5s) | Yes (< 0.5s) |
 
 **Key findings:**
@@ -370,6 +371,15 @@ Open `http://localhost:9090` and run these queries:
 ---
 
 ## Troubleshooting
+
+**Autoscaler shows stale latency values with empty queue:**
+
+This is residual Prometheus data from a previous run. Flush Redis and wait 2 minutes before starting:
+
+```bash
+kubectl exec deployment/redis -- redis-cli flushall
+kubectl scale deployment tu-cloud-project --replicas=1
+```
 
 **Pods stuck in Pending state:**
 

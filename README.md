@@ -41,7 +41,7 @@ Ensure the following are installed before proceeding:
 Python packages required (for running autoscaler and analysis locally):
 
 ```bash
-pip install requests pandas matplotlib
+pip3 install requests pandas matplotlib
 ```
 ---
 

@@ -23,8 +23,8 @@ queue_size = Gauge("dispatcher_queue_size", "Current Redis queue size")
 
 # Config
 QUEUE_NAME = 'inference_queue'
-MAX_WAIT_TIME = 10  # seconds
-FORWARD_INTERVAL = 0.05  # 50ms
+MAX_WAIT_TIME = 10
+FORWARD_INTERVAL = 0.05
 REPLICA_HOST = os.getenv("REPLICA_HOST", "localhost")
 REPLICA_PORT = os.getenv("REPLICA_PORT", "80")
 replica_urls = [f"http://{REPLICA_HOST}:{REPLICA_PORT}/"]
@@ -33,12 +33,6 @@ replica_index = 0
 
 @app.route('/query', methods=['POST'])
 def receive_query():
-    # image = request.files.get('image')
-    # if not image:
-    #     return jsonify({"error": "No image provided"}), 400
-
-    # # Redis stores binary as base64
-    # image_data = base64.b64encode(image.read())
 
     input = request.get_json()
     image_data = input['image']
@@ -70,10 +64,6 @@ def forward_requests():
                     continue
 
                 target_url = replica_urls[replica_index]
-                # res = requests.post(
-                #     target_url, json={"image": image_path}, timeout=1)
-                # print(
-                #     f"[✓] Forwarded {request_id} to {target_url} → {res.status_code}; Prediction: {res.text}")
                 try:
                     res = requests.post(
                         target_url, json={"image": image_path}, timeout=5)
@@ -93,11 +83,8 @@ def forward_requests():
 
 if __name__ == '__main__':
     print("🚀 Redis-based Dispatcher running on http://localhost:5001")
-    # Prometheus metrics on http://localhost:8000/metrics
     start_http_server(8000)
 
-    # NEW - multiple threads
-    # for _ in range(10):  # Adjust to number of CPUs or desired parallelism
     threading.Thread(target=forward_requests, daemon=True).start()
 
     app.run(host="0.0.0.0", port=5001)

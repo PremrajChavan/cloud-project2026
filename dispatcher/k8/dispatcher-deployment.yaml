@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dispatcher
+  name: dispatcher   # Deployment name
 spec:
-  replicas: 1
+  replicas: 1        # Run 1 dispatcher pod
   selector:
     matchLabels:
       app: dispatcher
@@ -14,31 +14,32 @@ spec:
     spec:
       containers:
         - name: dispatcher
-          image: dispatcher  # build locally with minikube docker-env
+          image: dispatcher   # Local image built inside Minikube
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 5001
-            - containerPort: 8000
+            - containerPort: 5001   # Dispatcher API port
+            - containerPort: 8000   # Prometheus metrics port
           env:
-             - name: REPLICA_HOST
-               value: "tu-cloud-project"
-             - name: REDIS_HOST
-               value: "redis-service"
-             - name: REPLICA_PORT
-               value: "80"
+            - name: REPLICA_HOST
+              value: "tu-cloud-project"   # Inference service hostname
+            - name: REDIS_HOST
+              value: "redis-service"      # Redis service hostname
+            - name: REPLICA_PORT
+              value: "80"                 # Inference service port
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: dispatcher-service
+  name: dispatcher-service   # Exposes dispatcher pod
 spec:
   selector:
     app: dispatcher
   ports:
     - name: http
-      port: 5001
-      targetPort: 5001
+      port: 5001             # Service port for API
+      targetPort: 5001       # Forward to container port 5001
     - name: metrics
-      port: 8000
-      targetPort: 8000
-  type: NodePort
+      port: 8000             # Service port for metrics
+      targetPort: 8000       # Forward to container port 8000
+  type: NodePort             # Accessible from outside the cluster

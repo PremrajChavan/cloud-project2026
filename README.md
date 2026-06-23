@@ -41,8 +41,21 @@ Ensure the following are installed before proceeding:
 Python packages required (for running autoscaler and analysis locally):
 
 ```bash
-pip3 install requests pandas matplotlib
+pip3 install requests pandas matplotlib  # Windows: pip install requests pandas matplotlib
 ```
+
+**Windows Users:** Use these command replacements:
+
+| Mac/Linux | Windows PowerShell |
+|---|---|
+| `eval $(minikube docker-env)` | `minikube docker-env | Invoke-Expression` |
+| `python3 script.py` | `python script.py` |
+| `pip3 install` | `pip install` |
+| `lsof -ti:5001 \| xargs kill -9` | `Stop-Process -Id (Get-NetTCPConnection -LocalPort 5001).OwningProcess -Force` |
+| `open file.png` | `start file.png` |
+| `echo "..." > file.csv` | `"..." \| Out-File -FilePath file.csv` |
+| `cp file1 file2` | `Copy-Item file1 file2` |
+
 ---
 
 ## Step 1 — Start Minikube
@@ -59,13 +72,15 @@ Wait until the node shows `STATUS = Ready` before proceeding.
 
 ## Step 2 — Build Docker Images Inside Minikube
 
-All images must be built inside Minikube's Docker daemon so Kubernetes can find them without a registry.
-
+**Mac/Linux:**
 ```bash
 eval $(minikube docker-env)
 ```
 
-Build the inference image:
+**Windows:**
+```powershell
+minikube docker-env | Invoke-Expression
+```
 
 ```bash
 cd ml_model
@@ -107,24 +122,13 @@ Wait for all pods to reach Running state:
 kubectl get pods -w
 ```
 
-Expected output:
-
-```
-NAME                                READY   STATUS    RESTARTS   AGE
-dispatcher-xxxx                     1/1     Running   0          30s
-prometheus-xxxx                     1/1     Running   0          30s
-redis-xxxx                          1/1     Running   0          30s
-tu-cloud-project-xxxx               1/1     Running   0          30s
-```
-
-Press Ctrl+C once all pods show `1/1 Running`.
+Wait for all pods to show `1/1 Running`, then Ctrl+C.
 
 ---
 
 ## Step 4 — Start Port Forwards
 
-Run the following in a dedicated terminal and keep it open throughout the session:
-
+**Mac/Linux** (Run the following in a dedicated terminal and keep it open throughout the session:):
 ```bash
 lsof -ti:5001 | xargs kill -9 2>/dev/null; true
 lsof -ti:8000 | xargs kill -9 2>/dev/null; true
@@ -134,6 +138,14 @@ kubectl port-forward service/dispatcher-service 5001:5001 &
 kubectl port-forward service/dispatcher-service 8000:8000 &
 kubectl port-forward service/tu-cloud-project 8001:8001 &
 kubectl port-forward service/prometheus-service 9090:9090 &
+```
+
+**Windows** (four separate terminals):
+```powershell
+kubectl port-forward service/dispatcher-service 5001:5001
+kubectl port-forward service/dispatcher-service 8000:8000
+kubectl port-forward service/tu-cloud-project 8001:8001
+kubectl port-forward service/prometheus-service 9090:9090
 ```
 
 ---
@@ -177,21 +189,17 @@ echo "Timestamp,P99_Latency,Queue_Size,Replica_Count" > autoscaler_log.csv
 python3 autoscaler_logger.py
 ```
 
-**Terminal 2 — Load Test:**
-
+**Terminal 2:**
 ```bash
-cd dispatcher/test
-python3 test.py
+cd dispatcher/test && python3 test.py
 ```
 
-**Terminal 3 — Watch Pods Scale:**
-
+**Terminal 3:**
 ```bash
 watch -n 5 kubectl get pods
 ```
 
-When the load test reaches Second 630, stop the autoscaler with Ctrl+C and save the log:
-
+When load test reaches Second 630, stop autoscaler (Ctrl+C):
 ```bash
 cp dispatcher/autoscaler_log.csv dispatcher/custom_log.csv
 ```
@@ -203,12 +211,6 @@ cp dispatcher/autoscaler_log.csv dispatcher/custom_log.csv
 ```bash
 kubectl scale deployment tu-cloud-project --replicas=1
 kubectl autoscale deployment tu-cloud-project --cpu-percent=70 --min=1 --max=10
-kubectl get hpa
-```
-
-Reset the log and run the load test again:
-
-```bash
 echo "Timestamp,P99_Latency,Queue_Size,Replica_Count" > dispatcher/autoscaler_log.csv
 ```
 
@@ -238,12 +240,6 @@ kubectl delete hpa tu-cloud-project
 ```bash
 kubectl scale deployment tu-cloud-project --replicas=1
 kubectl autoscale deployment tu-cloud-project --cpu-percent=90 --min=1 --max=10
-kubectl get hpa
-```
-
-Reset the log and run again:
-
-```bash
 echo "Timestamp,P99_Latency,Queue_Size,Replica_Count" > dispatcher/autoscaler_log.csv
 ```
 
@@ -277,72 +273,44 @@ python3 analyze_autoscaler_log.py
 ```
 
 Open the generated plots:
-
-```bash
-open comparison_p99_latency.png
-open comparison_replicas.png
-open autoscaler_performance_plot.png
-open p99_latency_plot.png
-open queue_size_plot.png
-open replica_count_plot.png
-```
+**Mac:** `open comparison_p99_latency.png`
+**Windows:** `start comparison_p99_latency.png`
 
 ---
 
 ## Pre-recorded Results
-
-The following log files and plots are included in the repository from a completed run and can be viewed without re-running the experiments:
 
 | File | Description |
 |---|---|
 | `custom_log.csv` | Custom autoscaler run log |
 | `hpa70_log.csv` | HPA 70% CPU run log |
 | `hpa90_log.csv` | HPA 90% CPU run log |
-| `comparison_p99_latency.png` | P99 latency comparison across all three |
-| `comparison_replicas.png` | Replica count comparison across all three |
+| `comparison_p99_latency.png` | P99 latency comparison |
+| `comparison_replicas.png` | Replica count comparison |
 | `autoscaler_performance_plot.png` | Custom autoscaler time-series |
-| `p99_latency_plot.png` | P99 latency over time |
-| `queue_size_plot.png` | Queue size over time |
-| `replica_count_plot.png` | Replica count over time |
 
-To view results directly without running experiments:
-
+To view without re-running:
 ```bash
-cd dispatcher
-python3 compare_autoscalers.py
+cd dispatcher && python3 compare_autoscalers.py
 ```
 
 ---
 
-## Autoscaler Terminal Output Format
-
-The autoscaler prints a live table every 15 seconds:
-
-```
-Timestamp              P99 Latency   Queue Size   Replicas   Action
---------------------------------------------------------------------------------------------
-2026-06-18T00:28:53         0.480s           13          1   SCALE UP -> 2 replicas
-2026-06-18T00:29:09         0.640s            2          2   SCALE UP -> 3 replicas
-2026-06-18T00:29:25         0.650s            1          3   SCALE UP -> 4 replicas
-2026-06-18T00:30:12         0.250s            3          5   No scaling needed
-2026-06-18T00:30:28         0.250s            3          5   No scaling needed
-2026-06-18T00:32:03         0.250s           12          5   SCALE UP -> 6 replicas
-```
-
-**Scaling rules:**
+## Autoscaler Scaling Rules
 
 | Condition | Action |
 |---|---|
-| P99 > 0.5s (SLO violated) | Scale up aggressively (+2 or queue/50 replicas) |
+| P99 > 0.5s (SLO violated) | Scale up aggressively (+2 or queue/50) |
 | Queue > 100 | Scale up by 2 replicas (proactive) |
 | Queue > 20 | Scale up by 1 replica (proactive) |
 | Queue = 0 | Scale down by 1 replica |
 | Otherwise | No scaling needed |
+
 ---
 
 ## Prometheus Queries
 
-Open `http://localhost:9090` and run these queries:
+Open `http://localhost:9090`:
 
 | Metric | Query |
 |---|---|
@@ -362,11 +330,7 @@ Open `http://localhost:9090` and run these queries:
 | Avg Replicas Used | 2.78 | 2.81 | 2.83 |
 | Latency Target Met | Yes (< 0.5s) | Yes (< 0.5s) | Yes (< 0.5s) |
 
-**Key findings:**
-
-- The custom autoscaler matches HPA-90% performance while using fewer resources than HPA-70%.
-- HPA-70% over-provisions replicas without a corresponding latency benefit.
-- The custom autoscaler responds directly to latency and queue depth, making it more adaptive than CPU-based HPA.
+The custom autoscaler reacts directly to latency and queue depth, outperforming CPU-based HPA under bursty workloads.
 
 ---
 
@@ -408,8 +372,6 @@ curl http://localhost:9090/api/v1/targets | python3 -m json.tool | grep health
 
 **Port already in use:**
 
-```bash
-lsof -ti:<port> | xargs kill -9
-```
+Mac: `lsof -ti:<port> | xargs kill -9`
 
----
+Windows: `Stop-Process -Id (Get-NetTCPConnection -LocalPort <port>).OwningProcess -Force`

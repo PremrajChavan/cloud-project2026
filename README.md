@@ -1,5 +1,4 @@
 # Cloud Computing Project 2026
----
 
 ## Overview
 
@@ -29,8 +28,6 @@ Load Tester --> Dispatcher (Flask + Redis) --> ML Inference Replicas (ResNet18)
 
 ## Prerequisites
 
-Ensure the following are installed before proceeding:
-
 | Tool | Minimum Version |
 |---|---|
 | Minikube | v1.38+ |
@@ -38,23 +35,30 @@ Ensure the following are installed before proceeding:
 | Docker | v29+ |
 | Python | v3.11+ |
 
-Python packages required (for running autoscaler and analysis locally):
-
+**Mac/Linux:**
 ```bash
-pip3 install requests pandas matplotlib  # Windows: pip install requests pandas matplotlib
+pip3 install requests pandas matplotlib
 ```
 
-**Windows Users:** Use these command replacements:
+**Windows:**
+```powershell
+pip install requests pandas matplotlib
+```
 
-| Mac/Linux | Windows PowerShell |
-|---|---|
-| `eval $(minikube docker-env)` | `minikube docker-env | Invoke-Expression` |
-| `python3 script.py` | `python script.py` |
-| `pip3 install` | `pip install` |
-| `lsof -ti:5001 \| xargs kill -9` | `Stop-Process -Id (Get-NetTCPConnection -LocalPort 5001).OwningProcess -Force` |
-| `open file.png` | `start file.png` |
-| `echo "..." > file.csv` | `"..." \| Out-File -FilePath file.csv` |
-| `cp file1 file2` | `Copy-Item file1 file2` |
+---
+
+## Command Reference (Mac vs Windows)
+
+| Task | Mac/Linux | Windows PowerShell |
+|---|---|---|
+| Point Docker to Minikube | `eval $(minikube docker-env)` | `minikube docker-env \| Invoke-Expression` |
+| Run Python script | `python3 script.py` | `python script.py` |
+| Install packages | `pip3 install` | `pip install` |
+| Kill port process | `lsof -ti:5001 \| xargs kill -9` | `Stop-Process -Id (Get-NetTCPConnection -LocalPort 5001).OwningProcess -Force` |
+| Open image file | `open file.png` | `start file.png` |
+| Create CSV header | `echo "..." > file.csv` | `"..." \| Out-File -FilePath file.csv -Encoding utf8` |
+| Copy file | `cp file1 file2` | `Copy-Item file1 file2` |
+| Watch pods | `watch -n 5 kubectl get pods` | `while(1){kubectl get pods; Start-Sleep 5; Clear-Host}` |
 
 ---
 
@@ -66,7 +70,7 @@ minikube addons enable metrics-server
 kubectl get nodes
 ```
 
-Wait until the node shows `STATUS = Ready` before proceeding.
+Wait until node shows `STATUS = Ready`.
 
 ---
 
@@ -82,31 +86,30 @@ eval $(minikube docker-env)
 minikube docker-env | Invoke-Expression
 ```
 
+Build inference image:
 ```bash
 cd ml_model
 docker build -t resnet-infer .
 cd ..
 ```
 
-Build the dispatcher image:
-
+Build dispatcher image:
 ```bash
 cd dispatcher
 docker build -t dispatcher .
 cd ..
 ```
 
-Verify both images exist:
-
+Verify:
 ```bash
-docker images | grep -E "resnet-infer|dispatcher"
+docker images
 ```
+
+Both `resnet-infer` and `dispatcher` must appear in the list.
 
 ---
 
 ## Step 3 — Deploy to Kubernetes
-
-Apply all manifests in order:
 
 ```bash
 kubectl apply -f dispatcher/k8/redis-deployment.yaml
@@ -116,19 +119,20 @@ kubectl apply -f dispatcher/k8/dispatcher-deployment.yaml
 kubectl apply -f dispatcher/k8/prometheus-deployment.yaml
 ```
 
-Wait for all pods to reach Running state:
-
+Wait for all pods:
 ```bash
 kubectl get pods -w
 ```
 
-Wait for all pods to show `1/1 Running`, then Ctrl+C.
+Wait until all show `1/1 Running`, then Ctrl+C.
 
 ---
 
 ## Step 4 — Start Port Forwards
 
-**Mac/Linux** (Run the following in a dedicated terminal and keep it open throughout the session:):
+Open a dedicated terminal and keep it open throughout the session.
+
+**Mac/Linux:**
 ```bash
 lsof -ti:5001 | xargs kill -9 2>/dev/null; true
 lsof -ti:8000 | xargs kill -9 2>/dev/null; true
@@ -140,11 +144,17 @@ kubectl port-forward service/tu-cloud-project 8001:8001 &
 kubectl port-forward service/prometheus-service 9090:9090 &
 ```
 
-**Windows** (four separate terminals):
+**Windows** (run each in a separate terminal):
 ```powershell
 kubectl port-forward service/dispatcher-service 5001:5001
+```
+```powershell
 kubectl port-forward service/dispatcher-service 8000:8000
+```
+```powershell
 kubectl port-forward service/tu-cloud-project 8001:8001
+```
+```powershell
 kubectl port-forward service/prometheus-service 9090:9090
 ```
 
@@ -152,8 +162,7 @@ kubectl port-forward service/prometheus-service 9090:9090
 
 ## Step 5 — Verify the Pipeline
 
-Test that a request flows end-to-end:
-
+**Mac/Linux:**
 ```bash
 curl http://localhost:5001/query \
   -X POST \
@@ -161,16 +170,23 @@ curl http://localhost:5001/query \
   -d '{"image": "/app/images/fire_truck.jpeg"}'
 ```
 
-Expected response:
-
-```json
-{"message": "Queued"}
+**Windows:**
+```powershell
+Invoke-WebRequest -Uri http://localhost:5001/query -Method POST -ContentType "application/json" -Body '{"image": "/app/images/fire_truck.jpeg"}'
 ```
 
-Verify Prometheus is scraping both services:
+Expected response: `{"message": "Queued"}`
 
+Verify Prometheus targets:
+
+**Mac/Linux:**
 ```bash
 curl http://localhost:9090/api/v1/targets | python3 -m json.tool | grep health
+```
+
+**Windows:**
+```powershell
+(Invoke-WebRequest http://localhost:9090/api/v1/targets).Content | python -m json.tool | Select-String "health"
 ```
 
 Both targets must show `"health": "up"` before running any load test.
@@ -179,29 +195,56 @@ Both targets must show `"health": "up"` before running any load test.
 
 ## Step 6 — Run Scenario A: Custom Autoscaler
 
-Open three terminals:
-
 **Terminal 1 — Autoscaler:**
 
+Mac/Linux:
 ```bash
 cd dispatcher
 echo "Timestamp,P99_Latency,Queue_Size,Replica_Count" > autoscaler_log.csv
 python3 autoscaler_logger.py
 ```
 
-**Terminal 2:**
+Windows:
+```powershell
+cd dispatcher
+"Timestamp,P99_Latency,Queue_Size,Replica_Count" | Out-File -FilePath autoscaler_log.csv -Encoding utf8
+python autoscaler_logger.py
+```
+
+**Terminal 2 — Load Test:**
+
+Mac/Linux:
 ```bash
 cd dispatcher/test && python3 test.py
 ```
 
-**Terminal 3:**
+Windows:
+```powershell
+cd dispatcher/test; python test.py
+```
+
+**Terminal 3 — Watch Pods:**
+
+Mac/Linux:
 ```bash
 watch -n 5 kubectl get pods
 ```
 
-When load test reaches Second 630, stop autoscaler (Ctrl+C):
+Windows:
+```powershell
+while(1){kubectl get pods; Start-Sleep 5; Clear-Host}
+```
+
+When load test reaches Second 630, stop autoscaler (Ctrl+C) and save log:
+
+Mac/Linux:
 ```bash
 cp dispatcher/autoscaler_log.csv dispatcher/custom_log.csv
+```
+
+Windows:
+```powershell
+Copy-Item dispatcher/autoscaler_log.csv dispatcher/custom_log.csv
 ```
 
 ---
@@ -211,25 +254,34 @@ cp dispatcher/autoscaler_log.csv dispatcher/custom_log.csv
 ```bash
 kubectl scale deployment tu-cloud-project --replicas=1
 kubectl autoscale deployment tu-cloud-project --cpu-percent=70 --min=1 --max=10
+kubectl get hpa
+```
+
+Reset log:
+
+Mac/Linux:
+```bash
 echo "Timestamp,P99_Latency,Queue_Size,Replica_Count" > dispatcher/autoscaler_log.csv
 ```
 
-**Terminal 1:**
-
-```bash
-cd dispatcher && python3 autoscaler_logger.py
+Windows:
+```powershell
+"Timestamp,P99_Latency,Queue_Size,Replica_Count" | Out-File -FilePath dispatcher/autoscaler_log.csv -Encoding utf8
 ```
 
-**Terminal 2:**
+Run Terminal 1 and Terminal 2 as in Step 6. When done:
 
-```bash
-cd dispatcher/test && python3 test.py
-```
-
-When done:
-
+Mac/Linux:
 ```bash
 cp dispatcher/autoscaler_log.csv dispatcher/hpa70_log.csv
+```
+
+Windows:
+```powershell
+Copy-Item dispatcher/autoscaler_log.csv dispatcher/hpa70_log.csv
+```
+
+```bash
 kubectl delete hpa tu-cloud-project
 ```
 
@@ -240,25 +292,22 @@ kubectl delete hpa tu-cloud-project
 ```bash
 kubectl scale deployment tu-cloud-project --replicas=1
 kubectl autoscale deployment tu-cloud-project --cpu-percent=90 --min=1 --max=10
-echo "Timestamp,P99_Latency,Queue_Size,Replica_Count" > dispatcher/autoscaler_log.csv
+kubectl get hpa
 ```
 
-**Terminal 1:**
+Reset log and run Terminal 1 and Terminal 2 as in Step 6. When done:
 
-```bash
-cd dispatcher && python3 autoscaler_logger.py
-```
-
-**Terminal 2:**
-
-```bash
-cd dispatcher/test && python3 test.py
-```
-
-When done:
-
+Mac/Linux:
 ```bash
 cp dispatcher/autoscaler_log.csv dispatcher/hpa90_log.csv
+```
+
+Windows:
+```powershell
+Copy-Item dispatcher/autoscaler_log.csv dispatcher/hpa90_log.csv
+```
+
+```bash
 kubectl delete hpa tu-cloud-project
 ```
 
@@ -266,19 +315,29 @@ kubectl delete hpa tu-cloud-project
 
 ## Step 9 — Generate Comparison Results
 
+Mac/Linux:
 ```bash
 cd dispatcher
 python3 compare_autoscalers.py
 python3 analyze_autoscaler_log.py
+open comparison_p99_latency.png
+open comparison_replicas.png
 ```
 
-Open the generated plots:
-**Mac:** `open comparison_p99_latency.png`
-**Windows:** `start comparison_p99_latency.png`
+Windows:
+```powershell
+cd dispatcher
+python compare_autoscalers.py
+python analyze_autoscaler_log.py
+start comparison_p99_latency.png
+start comparison_replicas.png
+```
 
 ---
 
 ## Pre-recorded Results
+
+The following files are included and can be viewed without re-running experiments:
 
 | File | Description |
 |---|---|
@@ -288,10 +347,20 @@ Open the generated plots:
 | `comparison_p99_latency.png` | P99 latency comparison |
 | `comparison_replicas.png` | Replica count comparison |
 | `autoscaler_performance_plot.png` | Custom autoscaler time-series |
+| `p99_latency_plot.png` | P99 latency over time |
+| `queue_size_plot.png` | Queue size over time |
+| `replica_count_plot.png` | Replica count over time |
 
-To view without re-running:
+To regenerate plots from saved logs:
+
+Mac/Linux:
 ```bash
 cd dispatcher && python3 compare_autoscalers.py
+```
+
+Windows:
+```powershell
+cd dispatcher; python compare_autoscalers.py
 ```
 
 ---
@@ -310,7 +379,7 @@ cd dispatcher && python3 compare_autoscalers.py
 
 ## Prometheus Queries
 
-Open `http://localhost:9090`:
+Open `http://localhost:9090` in browser:
 
 | Metric | Query |
 |---|---|
@@ -336,42 +405,30 @@ The custom autoscaler reacts directly to latency and queue depth, outperforming 
 
 ## Troubleshooting
 
-**Autoscaler shows stale latency values with empty queue:**
-
-This is residual Prometheus data from a previous run. Flush Redis and wait 2 minutes before starting:
-
+**Stale latency values with empty queue:**
 ```bash
 kubectl exec deployment/redis -- redis-cli flushall
 kubectl scale deployment tu-cloud-project --replicas=1
 ```
 
-**Pods stuck in Pending state:**
+**Pods stuck in Pending:** Forgot to point Docker to Minikube before building images (Step 2).
 
-```bash
-kubectl describe pod <pod-name>
-```
+**Prometheus targets DOWN:** Restart port-forwards (Step 4).
 
-Most common cause: forgot to run `eval $(minikube docker-env)` before building images.
+**Autoscaler showing N/A:**
 
-**Prometheus targets showing DOWN:**
-
-```bash
-kubectl get pods | grep prometheus
-kubectl logs deployment/prometheus --tail=20
-```
-
-Restart port-forwards if they died.
-
-**Autoscaler showing N/A for all metrics:**
-
-Prometheus is not scraping yet. Verify targets are UP:
-
+Mac/Linux:
 ```bash
 curl http://localhost:9090/api/v1/targets | python3 -m json.tool | grep health
 ```
 
+Windows:
+```powershell
+(Invoke-WebRequest http://localhost:9090/api/v1/targets).Content | python -m json.tool | Select-String "health"
+```
+
 **Port already in use:**
 
-Mac: `lsof -ti:<port> | xargs kill -9`
+Mac/Linux: `lsof -ti:<port> | xargs kill -9`
 
 Windows: `Stop-Process -Id (Get-NetTCPConnection -LocalPort <port>).OwningProcess -Force`

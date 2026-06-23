@@ -1,17 +1,17 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: tu-cloud-project
+  name: tu-cloud-project      # Service name
   labels:
     app: resnet-infer
 spec:
   selector:
-    app: resnet-infer
+    app: resnet-infer         # Route traffic to inference pods
   ports:
     - name: http
-      port: 80
-      targetPort: 6001
+      port: 80               # Service HTTP port
+      targetPort: 6001       # Forward to inference API port
     - name: metrics
-      port: 8001
-      targetPort: 8001
-  type: NodePort  # You can change to LoadBalancer or ClusterIP if needed
+      port: 8001             # Service metrics port
+      targetPort: 8001       # Forward to Prometheus metrics port
+  type: NodePort             # Expose service outside the cluster

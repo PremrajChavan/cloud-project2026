@@ -6,7 +6,7 @@ from prometheus_client import Counter, Histogram, start_http_server
 # Start Prometheus metrics server on port 8001
 start_http_server(8001)
 
-# Prometheus metrics
+# Track inference request count and latency histogram
 requests_total = Counter("inference_requests_total",
                          "Total inference requests")
 inference_latency = Histogram(
@@ -17,6 +17,7 @@ app = Flask(__name__)
 
 
 @app.route("/", methods=["GET", "POST"])
+# Decorator automatically records start/end time for each request
 @inference_latency.time()
 def index():
     requests_total.inc()

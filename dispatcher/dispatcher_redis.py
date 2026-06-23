@@ -10,6 +10,7 @@ import requests
 
 app = Flask(__name__)
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+# Connect to Redis using environment variable (defaults to localhost for local dev)
 r = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=False)
 
 # Prometheus metrics
@@ -28,6 +29,7 @@ FORWARD_INTERVAL = 0.05
 REPLICA_HOST = os.getenv("REPLICA_HOST", "localhost")
 REPLICA_PORT = os.getenv("REPLICA_PORT", "80")
 replica_urls = [f"http://{REPLICA_HOST}:{REPLICA_PORT}/"]
+# Round-robin index to distribute requests across inference replicas
 replica_index = 0
 
 
@@ -58,7 +60,7 @@ def forward_requests():
                 timestamp_str, request_id, image_path = decoded.split("|", 2)
                 timestamp = float(timestamp_str)
                 now = time.time()
-
+                # Drop requests older than MAX_WAIT_TIME to avoid serving stale results
                 if now - timestamp > MAX_WAIT_TIME:
                     requests_dropped.inc()
                     continue

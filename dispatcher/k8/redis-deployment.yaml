@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redis
+  name: redis              # Redis deployment name
 spec:
-  replicas: 1
+  replicas: 1             # Run a single Redis instance
   selector:
     matchLabels:
       app: redis
@@ -14,17 +14,18 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7
+          image: redis:7   # Official Redis v7 image
           ports:
-            - containerPort: 6379
+            - containerPort: 6379   # Redis default port
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis-service
+  name: redis-service     # Service to expose Redis internally
 spec:
   selector:
-    app: redis
+    app: redis            # Connects service to Redis pod
   ports:
-    - port: 6379
-      targetPort: 6379
+    - port: 6379          # Service port
+      targetPort: 6379    # Container port

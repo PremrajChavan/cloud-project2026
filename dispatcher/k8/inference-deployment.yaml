@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tu-cloud-project
+  name: tu-cloud-project      # Deployment name
   labels:
-    app: resnet-infer
+    app: resnet-infer         # Application label
 spec:
-  replicas: 1
+  replicas: 1                # Start with 1 inference pod
   selector:
     matchLabels:
       app: resnet-infer
@@ -16,15 +16,15 @@ spec:
     spec:
       containers:
         - name: resnet-infer
-          image: resnet-infer
+          image: resnet-infer         # Local ResNet inference image
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 6001
-            - containerPort: 8001
+            - containerPort: 6001     # Inference API port
+            - containerPort: 8001     # Prometheus metrics port
           resources:
             requests:
-              cpu: "1"        # ← FIXED (was "500m")
-              memory: "512Mi"
+              cpu: "1"                # Reserve 1 CPU core
+              memory: "512Mi"         # Reserve 512 MB memory
             limits:
-              cpu: "1"
-              memory: "1Gi"
+              cpu: "1"                # Maximum CPU usage
+              memory: "1Gi"           # Maximum memory usage
